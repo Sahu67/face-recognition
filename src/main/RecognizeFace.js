@@ -38,7 +38,7 @@ const RecognizeFace = () => {
                 new faceapi.TinyFaceDetectorOptions()
             ).withFaceLandmarks().withFaceExpressions();
 
-            console.log(detections);
+            console.log(detections);``
 
             canvasRef.current.innerHtml = faceapi.createCanvasFromMedia(videoRef.current);
             faceapi.matchDimensions(canvasRef.current, {
