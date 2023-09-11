@@ -1,71 +1,105 @@
-import { useRef, useEffect } from 'react';
-import * as faceapi from 'face-api.js';
+import { useCallback, useState, useRef } from "react";
+import Webcam from "react-webcam";
 
 const AddFace = () => {
 
-    const videoRef = useRef();
-    const canvasRef = useRef();
+    const [img, setImg] = useState(null);
+    const [webcamDisplay, setWebcamDisplay] = useState('none');
+    const webcamRef = useRef(null);
 
-
-    // Load from useEffect
-    useEffect(() => {
-        startVideo();
-        videoRef && loadModels();
-    }, []);
-
-
-    // Open your Face WebCam
-    const startVideo = () => {
-        navigator.mediaDevices.getUserMedia({video: true})
-        .then((currentStream) => {
-            videoRef.current.srcObject = currentStream;
-        })
-        .catch((err) => {
-            console.log(err);
-        });
+    const videoConstraints = {
+        width: 420,
+        height: 420,
+        facingMode: 'user'
     }
 
-    // Load Models
-    const loadModels = () => {
-        Promise.all([
-            faceapi.nets.tinyFaceDetector.loadFromUri('/models'),
-            faceapi.nets.faceLandmark68Net.loadFromUri('/models'),
-            faceapi.nets.faceRecognitionNet.loadFromUri('/models'),
-            faceapi.nets.faceExpressionNet.loadFromUri('/models'),
-        ]).then(() => { detectMyFace(); });
+    const captureImg = useCallback(() => {
+        const imageSrc = webcamRef.current.getScreenshot();
+        setImg(imageSrc);
+        setWebcamDisplay('none');
+    }, [webcamRef]);
+
+    const handleSubmit = (e) => {
+        e.preventDefault();
+
+        let xhr = new XMLHttpRequest();
+
+        xhr.open('POST', 'http://localhost/remote-server/add-data.php', true);
+
+        xhr.onload = () => {
+            if(xhr.readyState === XMLHttpRequest.DONE) {
+                if(xhr.status === 200) {
+                    const data = xhr.response;
+                    if(data === 'success') {
+                        setImg(null);
+                        setWebcamDisplay('none');
+                        e.target.reset();
+                        alert('Successfully added the data');
+                        return;
+                    } 
+                    alert(data);
+                }
+            }
+        }
+
+        const formData = new FormData(e.target);
+        formData.append('img', img);
+        xhr.send(formData);
     }
-
-    const detectMyFace = () => {
-        setInterval(async() => {
-            const detections = await faceapi.detectAllFaces(videoRef.current, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceExpressions();
-            console.log(detections);
-
-            // Draw the face in webcam
-            canvasRef.current.innerHtml = faceapi.createCanvasFromMedia(videoRef.current);
-            faceapi.matchDimensions(canvasRef.current, {
-                width: 640,
-                height: 480
-            });
-
-            const resized = faceapi.resizeResults(detections, {
-                width: 640, 
-                height: 480
-            });
-
-            faceapi.draw.drawDetections(canvasRef.current, resized);
-            faceapi.draw.drawFaceLandmarks(canvasRef.current, resized);
-            faceapi.draw.drawFaceExpressions(canvasRef.current, resized);
-        }, 100);
-    }
-
 
     return (
         <div className="container my-5">
-            <h1>Add Your Face</h1>
-            <div className="app-webcam-container my-3">
-                <video className='app-webcam' crossOrigin='anonymous' ref={videoRef} autoPlay muted></video>
-                <canvas className='app-webcam app-canvas' ref={canvasRef}></canvas>
-            </div>
+            <h1>Add Your Details</h1>
+            <form action="#" id="add-details-form" className="my-4" encType="multipart/form-data" onSubmit={handleSubmit}>
+                <div className="mb-3">
+                    <label htmlFor="username" className="form-label">Username</label>
+                    <input type="text" className="form-control" id="username" name="username" placeholder="..." />
+                </div>
+                <div className="mb-3">
+                    <label htmlFor="email" className="form-label">Email address</label>
+                    <input type="email" className="form-control" id="email" name="email" placeholder="..." />
+                </div>
+
+                {img === null ? (
+                    <>
+                        <div className="mb-3" style={{
+                            display: `${webcamDisplay === 'none' ? 'block' : 'none'}`
+                        }}>
+                            <button type="button" className="btn btn-outline-secondary" onClick={() => { (webcamDisplay === 'none' ? setWebcamDisplay('block') : setWebcamDisplay('none')) }}>Capture your image</button>
+                        </div>
+
+                    </>
+                ) : (
+                    <>
+                        <div className="mb-3" style={{ display: `${webcamDisplay === 'none' ? 'block' : 'none'}` }}>
+                            <img src={img} width={400} height={400} style={{ objectFit: 'cover' }} alt="hello" />
+                        </div>
+                        <button type="button" style={{ display: `${webcamDisplay === 'none' ? 'block' : 'none'}` }} className="btn btn-outline-secondary mb-4" onClick={() => setWebcamDisplay('block')}>Recapture your image</button>
+                    </>
+                )}
+                <div className="mb-3" style={{ display: webcamDisplay }}>
+                    <Webcam
+                        style={{
+                            width: '100%',
+                            height: '400px',
+                            maxWidth: '400px'
+                        }}
+                        ref={webcamRef}
+                        imageSmoothing={true}
+                        audio={false}
+                        mirrored={true}
+                        screenshotFormat="image/jpeg"
+                        videoConstraints={videoConstraints}
+                    />
+                    <div className="btns">
+                        <button type="button" className="btn btn-outline-success me-2" onClick={captureImg}>Capture</button>
+                        <button type="button" className="btn btn-outline-danger" onClick={() => { setWebcamDisplay('none'); }}>Close</button>
+                    </div>
+                </div>
+
+                {/* <input type="file" name="file" id="sp-file" /> */}
+                <button type="submit" className="btn btn-primary">Submit</button>
+            </form>
         </div>
     );
 }
