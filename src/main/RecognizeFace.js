@@ -1,24 +1,36 @@
 import { useRef, useEffect } from "react";
 import * as faceapi from 'face-api.js';
+import { useLocation } from "react-router-dom";
 
 const RecognizeFace = () => {
 
     const videoRef = useRef();
     const canvasRef = useRef();
 
+    const { pathname } = useLocation();
+    useEffect(() => {
+        navigator.mediaDevices.getUserMedia({ video: true })
+            .then(currentStream => {
+                currentStream.getTracks(t => {
+                    t.stop();
+                    currentStream.removeTrack(t);
+                });
+            });
+    }, [pathname]);
+
     useEffect(() => {
         startVideo();
-        videoRef && loadModels();
-    }, []);
+        videoRef && canvasRef && loadModels();
+    });
 
     const startVideo = () => {
-        navigator.mediaDevices.getUserMedia({video: true})
-        .then(currentStream => {
-            videoRef.current.srcObject = currentStream;
-        })
-        .catch(err => {
-            console.log(err);
-        });
+        navigator.mediaDevices.getUserMedia({ video: true })
+            .then(currentStream => {
+                videoRef.current.srcObject = currentStream;
+            })
+            .catch(err => {
+                console.log(err);
+            });
     }
 
     const loadModels = () => {
@@ -33,12 +45,12 @@ const RecognizeFace = () => {
     }
 
     const detectMyFace = () => {
-        setInterval(async() => {
-            const detections = await faceapi.detectAllFaces(videoRef.current, 
+        setInterval(async () => {
+            const detections = await faceapi.detectAllFaces(videoRef.current,
                 new faceapi.TinyFaceDetectorOptions()
             ).withFaceLandmarks().withFaceExpressions();
 
-            console.log(detections);``
+            console.log(detections);
 
             canvasRef.current.innerHtml = faceapi.createCanvasFromMedia(videoRef.current);
             faceapi.matchDimensions(canvasRef.current, {
@@ -61,11 +73,11 @@ const RecognizeFace = () => {
         <div className="container my-4">
             <h1>Recognize your face</h1>
             <div className="app-webcam-container">
-                <video 
+                <video
                     className="app-webcam"
                     crossOrigin="anonymous"
                     ref={videoRef}
-                    autoPlay  
+                    autoPlay
                     muted
                 />
                 <canvas ref={canvasRef} className="app-webcam" />
